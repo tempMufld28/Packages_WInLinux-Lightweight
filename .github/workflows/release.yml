@@ -123,6 +123,12 @@ jobs:
           if [ -n "${{ matrix.app.user_agent }}" ]; then
             ARGS+=("--user-agent" "${{ matrix.app.user_agent }}")
           fi
+          if [ -n "${{ matrix.app.icon }}" ]; then
+            ARGS+=("--icon" "${{ matrix.app.icon }}")
+          fi
+          if [ "${{ matrix.app.new_window }}" = "true" ]; then
+            ARGS+=("--new-window")
+          fi
 
           # Target strictly restricted to deb and rpm
           node dist/cli.js "${ARGS[@]}" --targets deb,rpm
@@ -138,9 +144,17 @@ jobs:
         run: |
           $args = "${{ matrix.app.url }}", "--name", "${{ matrix.app.title }}"
           $args += "--identifier", "${{ matrix.app.identifier }}"
+          $args += "--width", "${{ matrix.app.width || 1200 }}"
+          $args += "--height", "${{ matrix.app.height || 780 }}"
 
           if ("${{ matrix.app.user_agent }}" -ne "") {
             $args += "--user-agent", "${{ matrix.app.user_agent }}"
+          }
+          if ("${{ matrix.app.icon }}" -ne "") {
+            $args += "--icon", "${{ matrix.app.icon }}"
+          }
+          if ("${{ matrix.app.new_window }}" -eq "true") {
+            $args += "--new-window"
           }
 
           $args += "--targets", "x64"

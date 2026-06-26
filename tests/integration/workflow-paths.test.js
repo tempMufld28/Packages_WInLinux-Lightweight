@@ -102,7 +102,6 @@ describe("Workflow path integration", () => {
       );
 
       expect(workflow).toContain("Upload DEB (Linux)");
-      expect(workflow).toContain("Upload AppImage (Linux)");
       expect(workflow).toContain("Upload RPM (Linux)");
       expect(workflow).toContain("Upload ZST (Linux)");
       expect(workflow).toContain("path: ${{ inputs.name }}-*.pkg.tar.zst");

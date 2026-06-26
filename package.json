@@ -1,21 +1,20 @@
 {
-  "name": "pake-cli",
+  "name": "lightweight-apps-cli",
   "version": "3.12.1",
-  "description": "🤱🏻 Turn any webpage into a desktop app with one command. 🤱🏻 一键打包网页生成轻量桌面应用。",
+  "description": "Turn any webpage into a lightweight desktop app with one command.",
   "engines": {
     "node": ">=18.0.0"
   },
   "packageManager": "pnpm@10.26.2",
   "bin": {
-    "pake": "dist/cli.js"
+    "lightweight-apps": "dist/cli.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tw93/Pake.git"
+    "url": "git+https://github.com/tempmufdl28/Packages_deb-Lightweight.git"
   },
   "author": {
-    "name": "Tw93",
-    "email": "tw93@qq.com"
+    "name": "tempmufdl28"
   },
   "keywords": [
     "pake",

@@ -10,12 +10,11 @@ on:
       platform:
         description: "Platform"
         required: true
-        default: "macos-latest"
+        default: "ubuntu-24.04"
         type: choice
         options:
-          - "windows-latest"
-          - "macos-latest"
           - "ubuntu-24.04"
+          - "windows-latest"
       url:
         description: "Website URL"
         required: true
@@ -48,20 +47,10 @@ on:
         required: false
         type: boolean
         default: false
-      hide_title_bar:
-        description: "Hide title bar (macOS only)"
-        required: false
-        type: boolean
-        default: false
-      multi_arch:
-        description: "Universal binary (macOS only)"
-        required: false
-        type: boolean
-        default: false
       targets:
-        description: "Package formats (comma-separated: deb,appimage,rpm,zst)"
+        description: "Package formats (comma-separated: deb,rpm)"
         required: false
-        default: "deb"
+        default: "deb,rpm"
 
 jobs:
   build:
@@ -101,10 +90,10 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             src-tauri/target/
-          key: ${{ runner.os }}-cargo-pake-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-lightweight-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build App (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Build App (Linux)
+        if: runner.os == 'Linux'
         timeout-minutes: 25
         shell: bash
         run: |
@@ -138,15 +127,7 @@ jobs:
             ARGS+=("--fullscreen")
           fi
 
-          if [ "${{ inputs.hide_title_bar }}" == "true" ]; then
-            ARGS+=("--hide-title-bar")
-          fi
-
-          if [ "${{ inputs.multi_arch }}" == "true" ]; then
-            ARGS+=("--multi-arch")
-          fi
-
-          if [ -n "${{ inputs.targets }}" ] && [ "${{ runner.os }}" == "Linux" ]; then
+          if [ -n "${{ inputs.targets }}" ]; then
             ARGS+=("--targets" "${{ inputs.targets }}")
           fi
 
@@ -197,13 +178,6 @@ jobs:
 
           git checkout -- src-tauri/Cargo.lock
 
-      - name: Upload DMG (macOS)
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ inputs.name }}-macOS
-          path: ${{ inputs.name }}.dmg
-          retention-days: 3
 
       - name: Upload DEB (Linux)
         if: runner.os == 'Linux'
@@ -214,14 +188,6 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
 
-      - name: Upload AppImage (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ inputs.name }}-Linux-AppImage
-          path: ${{ inputs.name }}.AppImage
-          retention-days: 3
-          if-no-files-found: ignore
 
       - name: Upload RPM (Linux)
         if: runner.os == 'Linux'
@@ -259,4 +225,4 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             src-tauri/target/
-          key: ${{ runner.os }}-cargo-pake-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-lightweight-${{ hashFiles('**/Cargo.lock') }}
