@@ -106,19 +106,13 @@ describe('BaseBuilder guards', () => {
     await Promise.all(tempDirs.splice(0).map((dir) => fsExtra.remove(dir)));
   });
 
-  it('prepends /usr/bin to PATH for macOS build environment', () => {
+  it('returns undefined build environment on Windows/Linux', () => {
     const originalPath = process.env.PATH;
     process.env.PATH = '/opt/homebrew/bin:/usr/local/bin';
 
     try {
       const env = getBuildEnvironment();
-
-      if (process.platform === 'darwin') {
-        expect(env).toBeDefined();
-        expect(env!.PATH.startsWith('/usr/bin:')).toBe(true);
-      } else {
-        expect(env).toBeUndefined();
-      }
+      expect(env).toBeUndefined();
     } finally {
       process.env.PATH = originalPath;
     }

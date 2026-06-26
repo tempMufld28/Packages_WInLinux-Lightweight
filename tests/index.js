@@ -1548,7 +1548,7 @@ Test Components:
 Optional Components:
   --e2e          Add end-to-end configuration tests
   --pake-cli     Add pake-cli GitHub Actions tests
-  --release      Run release workflow tests (Twitter/WeRead) - Slow!
+  --release      Run release workflow tests (Telegram/Twitch) - Slow!
 
 Skip Components (if needed):
   --no-unit      Skip unit tests

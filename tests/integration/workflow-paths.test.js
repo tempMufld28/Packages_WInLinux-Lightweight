@@ -58,34 +58,6 @@ describe("Workflow path integration", () => {
       expect(windowsPaths.msi.generic).toBeTruthy();
     });
 
-    it("should match macOS output paths", () => {
-      // Expected paths based on MacBuilder behavior
-      const macosPaths = {
-        dmg: {
-          // CLI copies to project root
-          primary: "appname.dmg",
-          // Universal builds use universal-apple-darwin target
-          universalBundle:
-            "src-tauri/target/universal-apple-darwin/release/bundle/dmg",
-          // Regular builds
-          genericBundle: "src-tauri/target/release/bundle/dmg",
-        },
-        app: {
-          primary: "appname.app",
-          universalBundle:
-            "src-tauri/target/universal-apple-darwin/release/bundle/macos",
-          genericBundle: "src-tauri/target/release/bundle/macos",
-        },
-      };
-
-      expect(macosPaths.dmg.primary).toBeTruthy();
-      expect(macosPaths.dmg.universalBundle).toBeTruthy();
-      expect(macosPaths.app.primary).toBeTruthy();
-      expect(macosPaths.app.universalBundle).toBeTruthy();
-    });
-  });
-
-  describe("Multi-target scenarios", () => {
     it("should handle Linux multi-target builds", () => {
       const targets = "deb,appimage";
       const parsedTargets = targets.split(",").map((t) => t.trim());

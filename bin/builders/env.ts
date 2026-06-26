@@ -2,33 +2,16 @@ import path from 'path';
 import fsExtra from 'fs-extra';
 
 import { CN_MIRROR_ENV } from '@/utils/mirror';
-import { IS_MAC } from '@/utils/platform';
 import { npmDirectory } from '@/utils/dir';
 import logger from '@/options/logger';
 import packageJson from '../../package.json';
 
 /**
- * Returns build environment variables overrides for macOS, where Rust crates
- * sometimes need explicit C/C++ flags and a deterministic SDK target. Other
- * platforms inherit `process.env` unchanged.
+ * Build environment variable overrides. Returns undefined on Windows/Linux,
+ * which inherit `process.env` unchanged.
  */
 export function getBuildEnvironment(): Record<string, string> | undefined {
-  if (!IS_MAC) {
-    return undefined;
-  }
-
-  const currentPath = process.env.PATH || '';
-  const systemToolsPath = '/usr/bin';
-  const buildPath = currentPath.startsWith(`${systemToolsPath}:`)
-    ? currentPath
-    : `${systemToolsPath}:${currentPath}`;
-
-  return {
-    CFLAGS: '-fno-modules',
-    CXXFLAGS: '-fno-modules',
-    MACOSX_DEPLOYMENT_TARGET: '14.0',
-    PATH: buildPath,
-  };
+  return undefined;
 }
 
 /**

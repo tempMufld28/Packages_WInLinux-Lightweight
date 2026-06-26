@@ -1,5 +1,5 @@
-export type SupportedPlatform = 'win32' | 'darwin' | 'linux';
-export type TauriPlatform = 'windows' | 'macos' | 'linux';
+export type SupportedPlatform = 'win32' | 'linux';
+export type TauriPlatform = 'windows' | 'linux';
 
 export interface PakeCliOptions {
   // Application name
@@ -29,16 +29,13 @@ export interface PakeCliOptions {
   // Start window maximized, default false
   maximize: boolean;
 
-  // Enable immersive header, default false.
-  hideTitleBar: boolean;
-
   // Enable windows always on top, default false
   alwaysOnTop: boolean;
 
   // App version, the same as package.json version, default 1.0.0
   appVersion: string;
 
-  // Force app to use dark mode (supports macOS, Windows, and Linux), default false
+  // Force app to use dark mode (supports Windows and Linux), default false
   darkMode: boolean;
 
   // Disable web shortcuts, default false
@@ -50,20 +47,17 @@ export interface PakeCliOptions {
   // Custom User-Agent, default off
   userAgent: string;
 
-  // Enable system tray, default off for macOS, on for Windows and Linux
+  // Enable system tray, default on for Windows and Linux
   showSystemTray: boolean;
 
-  // Tray icon, default same as app icon for Windows and Linux, macOS requires separate png or ico
+  // Tray icon, default same as app icon for Windows and Linux
   systemTrayIcon: string;
 
   // Recursive copy, when url is a local file path, if this option is enabled, the url path file and all its subFiles will be copied to the pake static file folder, default off
   useLocalFile: false;
 
-  // Multi arch, supports both Intel and M1 chips, only for Mac
-  multiArch: boolean;
-
   // Build target architecture/format:
-  // Linux: "deb", "appimage", "rpm", "zst" and "*-arm64" variants; Windows: "x64", "arm64"; macOS: "intel", "apple", "universal"
+  // Linux: "deb", "appimage", "rpm", "zst" and "*-arm64" variants; Windows: "x64", "arm64"
   targets: string;
 
   // Debug mode, outputs more logs
@@ -78,7 +72,7 @@ export interface PakeCliOptions {
   // Installer language, valid for Windows users, default is en-US
   installerLanguage: string;
 
-  // Hide window on close instead of exiting, platform-specific: true for macOS, false for others
+  // Hide window on close instead of exiting, default false
   hideOnClose: boolean | undefined;
 
   // Launch app in incognito/private mode, default false
@@ -126,20 +120,11 @@ export interface PakeCliOptions {
   // Ignore certificate errors (for self-signed certs), default false
   ignoreCertificateErrors: boolean;
 
-  // Turn on rapid build mode (app only, no dmg/deb/msi), good for debugging
+  // Turn on rapid build mode (app only, no deb/msi), good for debugging
   iterativeBuild: boolean;
 
   // Allow sites to open new windows, default false
   newWindow: boolean;
-
-  // Auto-install app to /Applications (macOS) after build, default false
-  install: boolean;
-
-  // Request camera entitlement on macOS, default false
-  camera: boolean;
-
-  // Request microphone entitlement on macOS, default false
-  microphone: boolean;
 }
 
 export interface PakeAppOptions extends PakeCliOptions {
@@ -147,14 +132,12 @@ export interface PakeAppOptions extends PakeCliOptions {
 }
 
 export interface PlatformSpecific<T> {
-  macos: T;
   linux: T;
   windows: T;
 }
 
 export interface WindowConfig {
   url: string;
-  hide_title_bar: boolean;
   fullscreen: boolean;
   maximize: boolean;
   width: number;

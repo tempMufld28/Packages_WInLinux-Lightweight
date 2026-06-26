@@ -42,12 +42,10 @@ export const TEST_NAMES = {
   DEBUG: "DebugApp",
   FULL: "FullscreenApp",
   GOOGLE_TRANSLATE: "Google Translate",
-  MAC: "MacApp",
 };
 
 // Expected file extensions by platform
 export const PLATFORM_EXTENSIONS = {
-  darwin: "dmg",
   win32: "msi",
   linux: "deb",
 };

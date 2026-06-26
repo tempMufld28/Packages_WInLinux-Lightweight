@@ -12,11 +12,6 @@ function makeOptions(overrides: Partial<PakeAppOptions> = {}): PakeAppOptions {
 }
 
 describe('buildWindowConfigOverrides', () => {
-  it('matches the default snapshot on macOS', () => {
-    const result = buildWindowConfigOverrides(makeOptions(), 'darwin');
-    expect(result).toMatchSnapshot();
-  });
-
   it('matches the default snapshot on Windows', () => {
     const result = buildWindowConfigOverrides(makeOptions(), 'win32');
     expect(result).toMatchSnapshot();
@@ -27,23 +22,15 @@ describe('buildWindowConfigOverrides', () => {
     expect(result).toMatchSnapshot();
   });
 
-  it('respects explicit hideOnClose=false on macOS', () => {
+  it('respects explicit hideOnClose=false', () => {
     const result = buildWindowConfigOverrides(
       makeOptions({ hideOnClose: false }),
-      'darwin',
+      'linux',
     );
     expect(result.hide_on_close).toBe(false);
   });
 
-  it('defaults hideOnClose to true on macOS when undefined', () => {
-    const result = buildWindowConfigOverrides(
-      makeOptions({ hideOnClose: undefined }),
-      'darwin',
-    );
-    expect(result.hide_on_close).toBe(true);
-  });
-
-  it('defaults hideOnClose to false on Linux/Windows when undefined', () => {
+  it('defaults hideOnClose to false when undefined', () => {
     expect(
       buildWindowConfigOverrides(
         makeOptions({ hideOnClose: undefined }),
@@ -55,27 +42,6 @@ describe('buildWindowConfigOverrides', () => {
         makeOptions({ hideOnClose: undefined }),
         'win32',
       ).hide_on_close,
-    ).toBe(false);
-  });
-
-  it('only forwards hideTitleBar on macOS', () => {
-    expect(
-      buildWindowConfigOverrides(
-        { ...makeOptions(), hideTitleBar: true },
-        'darwin',
-      ).hide_title_bar,
-    ).toBe(true);
-    expect(
-      buildWindowConfigOverrides(
-        { ...makeOptions(), hideTitleBar: true },
-        'linux',
-      ).hide_title_bar,
-    ).toBe(false);
-    expect(
-      buildWindowConfigOverrides(
-        { ...makeOptions(), hideTitleBar: true },
-        'win32',
-      ).hide_title_bar,
     ).toBe(false);
   });
 
@@ -83,13 +49,13 @@ describe('buildWindowConfigOverrides', () => {
     expect(
       buildWindowConfigOverrides(
         makeOptions({ startToTray: true, showSystemTray: false }),
-        'darwin',
+        'linux',
       ).start_to_tray,
     ).toBe(false);
     expect(
       buildWindowConfigOverrides(
         makeOptions({ startToTray: true, showSystemTray: true }),
-        'darwin',
+        'linux',
       ).start_to_tray,
     ).toBe(true);
   });

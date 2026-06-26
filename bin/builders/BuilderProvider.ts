@@ -1,5 +1,4 @@
 import BaseBuilder from './BaseBuilder';
-import MacBuilder from './MacBuilder';
 import WinBuilder from './WinBuilder';
 import LinuxBuilder from './LinuxBuilder';
 import { PakeAppOptions } from '@/types';
@@ -10,7 +9,6 @@ const buildersMap: Record<
   string,
   new (options: PakeAppOptions) => BaseBuilder
 > = {
-  darwin: MacBuilder,
   win32: WinBuilder,
   linux: LinuxBuilder,
 };

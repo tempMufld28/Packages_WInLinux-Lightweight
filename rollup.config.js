@@ -9,14 +9,6 @@ import replace from "@rollup/plugin-replace";
 import chalk from "chalk";
 import { spawn, exec } from "child_process";
 
-// Set macOS SDK environment variables for compatibility
-if (process.platform === "darwin") {
-  process.env.MACOSX_DEPLOYMENT_TARGET =
-    process.env.MACOSX_DEPLOYMENT_TARGET || "14.0";
-  process.env.CFLAGS = process.env.CFLAGS || "-fno-modules";
-  process.env.CXXFLAGS = process.env.CXXFLAGS || "-fno-modules";
-}
-
 const isProduction = process.env.NODE_ENV === "production";
 const devPlugins = !isProduction ? [pakeCliDevPlugin()] : [];
 

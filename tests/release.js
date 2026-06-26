@@ -19,7 +19,7 @@ const RED = "\x1b[31m";
 const NC = "\x1b[0m";
 
 // Fixed test apps for consistent testing
-const TEST_APPS = ["weread", "twitter"];
+const TEST_APPS = ["telegram", "twitch"];
 
 class ReleaseBuildTest {
   constructor() {
@@ -57,7 +57,7 @@ class ReleaseBuildTest {
     // Set environment variables
     process.env.NAME = config.name;
     process.env.TITLE = config.title;
-    process.env.NAME_ZH = config.name_zh;
+    process.env.NAME_ZH = config.name_zh || config.title;
     process.env.URL = config.url;
 
     try {
@@ -67,7 +67,8 @@ class ReleaseBuildTest {
       // Build the app using CLI directly
       this.log("DEBUG", "Building app package...");
       const commonArgs = `${config.new_window ? "--new-window " : ""}--iterative-build --debug`;
-      const cmd = `node dist/cli.js ${config.url} --name ${config.name} --icon ${config.icon} ${commonArgs}`;
+      const iconArg = config.icon ? `--icon ${config.icon} ` : "";
+      const cmd = `node dist/cli.js ${config.url} --name ${config.name} ${iconArg}${commonArgs}`;
 
       try {
         execSync(cmd, {
@@ -99,8 +100,6 @@ class ReleaseBuildTest {
 
     // Check for direct output files (created by PAKE_CREATE_APP=1)
     const directPatterns = [
-      `${appName}.dmg`,
-      `${appName}.app`,
       `${appName}.msi`,
       `${appName}.deb`,
       `${appName}.AppImage`,
@@ -122,12 +121,8 @@ class ReleaseBuildTest {
       }
     }
 
-    // Also check bundle directories for app and dmg files
+    // Also check bundle directories for output files
     const bundleLocations = [
-      `src-tauri/target/release/bundle/macos/${appName}.app`,
-      `src-tauri/target/release/bundle/dmg/${appName}.dmg`,
-      `src-tauri/target/universal-apple-darwin/release/bundle/macos/${appName}.app`,
-      `src-tauri/target/universal-apple-darwin/release/bundle/dmg/${appName}.dmg`,
       `src-tauri/target/release/bundle/deb/${appName}_*.deb`,
       `src-tauri/target/release/bundle/msi/${appName}_*.msi`,
       `src-tauri/target/release/bundle/appimage/${appName}_*.AppImage`,
@@ -150,7 +145,7 @@ class ReleaseBuildTest {
             const matching = items.filter((item) => regex.test(item));
             matching.forEach((item) => {
               const fullPath = path.join(fullDir, item);
-              if (fs.statSync(fullPath).isFile() || item.endsWith(".app")) {
+              if (fs.statSync(fullPath).isFile()) {
                 files.push(fullPath);
               }
             });

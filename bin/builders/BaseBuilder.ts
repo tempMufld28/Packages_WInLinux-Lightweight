@@ -15,7 +15,6 @@ import { npmDirectory } from '@/utils/dir';
 import { getSpinner } from '@/utils/info';
 import { shellExec } from '@/utils/shell';
 import { CN_MIRROR_ENV, isCnMirrorEnabled } from '@/utils/mirror';
-import { IS_MAC } from '@/utils/platform';
 import logger from '@/options/logger';
 import {
   configureCargoRegistry,
@@ -62,7 +61,7 @@ export default abstract class BaseBuilder {
     const tauriTargetPath = path.join(tauriSrcPath, 'target');
     const tauriTargetPathExists = await fsExtra.pathExists(tauriTargetPath);
 
-    if (!IS_MAC && !tauriTargetPathExists) {
+    if (!tauriTargetPathExists) {
       logger.warn('✼ The first use requires installing system dependencies.');
       logger.warn('✼ See more in https://tauri.app/start/prerequisites/.');
     }
@@ -244,39 +243,6 @@ export default abstract class BaseBuilder {
       const binaryPath = this.getRawBinaryPath(name);
       logger.success('✔ Raw binary located in', path.resolve(binaryPath));
     }
-
-    if (IS_MAC && fileType === 'app' && this.options.install) {
-      await this.installAppToApplications(distPath, name);
-    }
-  }
-
-  private async installAppToApplications(
-    appBundlePath: string,
-    appName: string,
-  ): Promise<void> {
-    try {
-      logger.info(`- Installing ${appName} to /Applications...`);
-
-      const appBundleName = path.basename(appBundlePath);
-      const appDest = path.join('/Applications', appBundleName);
-
-      if (await fsExtra.pathExists(appDest)) {
-        logger.warn(
-          `  Existing ${appBundleName} in /Applications will be replaced.`,
-        );
-      }
-
-      // fsExtra.move uses fs.rename (atomic on same filesystem) and falls back
-      // to copy+remove only when moving across volumes.
-      await fsExtra.move(appBundlePath, appDest, { overwrite: true });
-
-      logger.success(
-        `✔ ${appBundleName.replace(/\.app$/, '')} installed to /Applications`,
-      );
-    } catch (error) {
-      logger.error(`✕ Failed to install ${appName}: ${error}`);
-      logger.info(`  App bundle still available at: ${appBundlePath}`);
-    }
   }
 
   protected getFileType(target: string): string {
@@ -289,11 +255,6 @@ export default abstract class BaseBuilder {
     string,
     Record<string, string>
   > = {
-    darwin: {
-      arm64: 'aarch64-apple-darwin',
-      x64: 'x86_64-apple-darwin',
-      universal: 'universal-apple-darwin',
-    },
     win32: {
       arm64: 'aarch64-pc-windows-msvc',
       x64: 'x86_64-pc-windows-msvc',
@@ -363,14 +324,6 @@ export default abstract class BaseBuilder {
   protected getBuildFeatures(): string[] {
     const features = ['cli-build'];
 
-    // Add macos-proxy feature for modern macOS (Darwin 23+ = macOS 14+)
-    if (IS_MAC) {
-      const macOSVersion = this.getMacOSMajorVersion();
-      if (macOSVersion >= 23) {
-        features.push('macos-proxy');
-      }
-    }
-
     return features;
   }
 
@@ -383,25 +336,7 @@ export default abstract class BaseBuilder {
       'tauri.conf.json',
     );
 
-    let fullCommand = this.buildBaseCommand(packageManager, configPath);
-
-    // For macOS, use app bundles by default unless DMG is explicitly requested
-    if (IS_MAC && this.options.targets === 'app') {
-      fullCommand += ' --bundles app';
-    }
-
-    return fullCommand;
-  }
-
-  protected getMacOSMajorVersion(): number {
-    try {
-      const os = require('os');
-      const release = os.release();
-      const majorVersion = parseInt(release.split('.')[0], 10);
-      return majorVersion;
-    } catch (error) {
-      return 0; // Disable proxy feature if version detection fails
-    }
+    return this.buildBaseCommand(packageManager, configPath);
   }
 
   protected getCargoTargetDir(): string {
@@ -424,9 +359,7 @@ export default abstract class BaseBuilder {
     fileName: string,
     fileType: string,
   ): string {
-    // For app bundles on macOS, the directory is 'macos', not 'app'
-    const bundleDir =
-      fileType.toLowerCase() === 'app' ? 'macos' : fileType.toLowerCase();
+    const bundleDir = fileType.toLowerCase();
     return path.join(
       this.resolveBuildPath(npmDirectory, this.getBasePath()),
       bundleDir,
@@ -466,7 +399,7 @@ export default abstract class BaseBuilder {
     const binaryName = this.getBinaryName(appName);
 
     // Handle cross-platform builds
-    if (this.options.multiArch || this.hasArchSpecificTarget()) {
+    if (this.hasArchSpecificTarget()) {
       return path.join(
         this.resolveBuildPath(npmDirectory, this.getArchSpecificPath()),
         basePath,

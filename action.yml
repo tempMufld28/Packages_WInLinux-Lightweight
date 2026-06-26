@@ -94,12 +94,8 @@ runs:
         node dist/cli.js "${ARGS[@]}"
 
         # Find generated package and set output
-        PACKAGE=$(find src-tauri/target -type f \( -name "*.deb" -o -name "*.exe" -o -name "*.msi" -o -name "*.dmg" \) 2>/dev/null | head -1)
+        PACKAGE=$(find src-tauri/target -type f \( -name "*.deb" -o -name "*.exe" -o -name "*.msi" \) 2>/dev/null | head -1)
 
-        # If no file packages found, look for .app directory (macOS)
-        if [ -z "$PACKAGE" ]; then
-          PACKAGE=$(find src-tauri/target -type d -name "*.app" 2>/dev/null | head -1)
-        fi
         if [ -n "$PACKAGE" ]; then
           # Move to output directory
           BASENAME=$(basename "$PACKAGE")

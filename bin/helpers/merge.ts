@@ -30,16 +30,13 @@ export function buildWindowConfigOverrides(
   options: PakeAppOptions,
   platform: SupportedPlatform = asSupportedPlatform(process.platform),
 ): Partial<WindowConfig> {
-  const platformHideOnClose = options.hideOnClose ?? platform === 'darwin';
-  const platformHideTitleBar =
-    platform === 'darwin' ? options.hideTitleBar : false;
+  const platformHideOnClose = options.hideOnClose ?? false;
   return {
     width: options.width,
     height: options.height,
     fullscreen: options.fullscreen,
     maximize: options.maximize,
     resizable: options.resizable ?? true,
-    hide_title_bar: platformHideTitleBar,
     activation_shortcut: options.activationShortcut,
     always_on_top: options.alwaysOnTop,
     dark_mode: options.darkMode,
@@ -69,9 +66,9 @@ type PlatformIconInfo = {
 };
 
 function asSupportedPlatform(platform: NodeJS.Platform): SupportedPlatform {
-  if (platform !== 'win32' && platform !== 'darwin' && platform !== 'linux') {
+  if (platform !== 'win32' && platform !== 'linux') {
     throw new Error(
-      `Pake only supports win32, darwin, and linux; detected '${platform}'.`,
+      `Pake only supports win32 and linux; detected '${platform}'.`,
     );
   }
   return platform;
@@ -83,7 +80,6 @@ async function copyTemplateConfigs(): Promise<void> {
 
   const sourceFiles = [
     'tauri.conf.json',
-    'tauri.macos.conf.json',
     'tauri.windows.conf.json',
     'tauri.linux.conf.json',
     'pake.json',
@@ -228,12 +224,6 @@ async function mergeIcons(
       defaultIcon: 'png/icon_512.png',
       message: 'Linux icon must be .png and 512x512px.',
     },
-    darwin: {
-      fileExt: '.icns',
-      path: `icons/${safeAppName}.icns`,
-      defaultIcon: 'icons/icon.icns',
-      message: 'macOS icon must be .icns type.',
-    },
   };
 
   const iconInfo = platformIconMap[platform];
@@ -285,8 +275,7 @@ async function mergeIcons(
   }
 
   // Set tray icon path.
-  let trayIconPath =
-    platform === 'darwin' ? 'png/icon_512.png' : tauriConf.bundle.icon![0];
+  let trayIconPath = tauriConf.bundle.icon![0];
   if (options.systemTrayIcon.length > 0) {
     try {
       await fsExtra.pathExists(options.systemTrayIcon);
@@ -360,44 +349,12 @@ async function injectCustomCode(
   }
 }
 
-async function generateMacEntitlements(
-  camera: boolean,
-  microphone: boolean,
-): Promise<void> {
-  const entitlementEntries: string[] = [];
-  if (camera) {
-    entitlementEntries.push(
-      '    <key>com.apple.security.device.camera</key>\n    <true/>',
-    );
-  }
-  if (microphone) {
-    entitlementEntries.push(
-      '    <key>com.apple.security.device.audio-input</key>\n    <true/>',
-    );
-  }
-  const entitlementsContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-  <dict>
-${entitlementEntries.join('\n')}
-  </dict>
-</plist>
-`;
-  const entitlementsPath = path.join(
-    npmDirectory,
-    'src-tauri',
-    'entitlements.plist',
-  );
-  await fsExtra.writeFile(entitlementsPath, entitlementsContent);
-}
-
 async function writeAllConfigs(
   tauriConf: PakeTauriConfig,
   platform: SupportedPlatform,
 ): Promise<void> {
   const platformConfigPaths: Record<SupportedPlatform, string> = {
     win32: 'tauri.windows.conf.json',
-    darwin: 'tauri.macos.conf.json',
     linux: 'tauri.linux.conf.json',
   };
 
@@ -436,16 +393,9 @@ export async function mergeConfig(
     name = 'pake-app',
     installerLanguage,
     wasm,
-    camera,
-    microphone,
   } = options;
 
   const platform = asSupportedPlatform(process.platform);
-  if (options.hideTitleBar && platform !== 'darwin') {
-    logger.warn(
-      '✼ --hide-title-bar is only supported on macOS and will be ignored on this platform.',
-    );
-  }
   const tauriConfWindowOptions = buildWindowConfigOverrides(options, platform);
   Object.assign(tauriConf.pake.windows[0], { url, ...tauriConfWindowOptions });
 
@@ -474,7 +424,6 @@ export async function mergeConfig(
   const platformMap: Record<SupportedPlatform, TauriPlatform> = {
     win32: 'windows',
     linux: 'linux',
-    darwin: 'macos',
   };
   const currentPlatform = platformMap[platform];
 
@@ -487,21 +436,10 @@ export async function mergeConfig(
     await mergeLinuxConfig(options, name, tauriConf, linuxBinaryName);
   }
 
-  if (platform === 'darwin') {
-    const validMacTargets = ['app', 'dmg'];
-    if (validMacTargets.includes(options.targets)) {
-      tauriConf.bundle.targets = [options.targets];
-    }
-  }
-
   const safeAppName = getSafeAppName(name);
   await mergeIcons(options, name, tauriConf, platform, safeAppName);
 
   await injectCustomCode(options, tauriConf);
-
-  if (platform === 'darwin') {
-    await generateMacEntitlements(camera, microphone);
-  }
 
   await writeAllConfigs(tauriConf, platform);
 }

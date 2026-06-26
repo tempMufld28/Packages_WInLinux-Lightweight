@@ -8,8 +8,8 @@
 
 - **Purpose**: Package any website into a ~5MB desktop app (20x smaller than Electron)
 - **Stack**: Tauri v2 (Rust) + TypeScript CLI
-- **Platforms**: macOS, Windows, Linux
-- **Mechanism**: Uses system webview (WebKit on macOS/Linux, WebView2 on Windows)
+- **Platforms**: Windows, Linux
+- **Mechanism**: Uses system webview (WebKitGTK on Linux, WebView2 on Windows)
 
 ## Repository Structure
 
@@ -47,7 +47,7 @@ Pake/
 | `pnpm run cli:dev --iterative-build` | Faster dev (skip checks)                                        |
 | `pnpm run cli:build`                 | Rollup + TypeScript check (catches type errors Prettier misses) |
 | `pnpm run build`                     | Build for current platform                                      |
-| `pnpm run build:mac`                 | macOS universal binary                                          |
+
 | `pnpm run format`                    | Format code (prettier + cargo fmt)                              |
 | `npx vitest run`                     | Unit and integration tests only (sub-second)                    |
 | `pnpm test -- --no-build`            | Full suite minus the multi-arch real build                      |
@@ -84,7 +84,7 @@ Execution rules:
 
 - Start with the smallest plausible file set
 - Prefer targeted search (`rg <symbol|string> <paths>`) over repository-wide scans
-- Ignore generated or output-heavy areas unless the task directly targets them, especially `dist/`, `node_modules/`, `src-tauri/target/`, `.app/`, `src-tauri/icons/`, and `src-tauri/png/`. Exception: `dist/cli.js` is the shipped CLI build artifact (see `package.json` `files`); when you change anything under `bin/`, rebuild it via `pnpm run cli:build` and commit the regenerated `dist/cli.js` alongside the source change
+- Ignore generated or output-heavy areas unless the task directly targets them, especially `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/icons/`, and `src-tauri/png/`. Exception: `dist/cli.js` is the shipped CLI build artifact (see `package.json` `files`); when you change anything under `bin/`, rebuild it via `pnpm run cli:build` and commit the regenerated `dist/cli.js` alongside the source change
 - If a task touches release status, issue closeout, npm delivery, or GitHub assets, verify live surfaces separately: source commit/tag, workflow run, npm registry, GitHub Release/assets, and issue state. Do not let one passing surface imply another
 - Keep changes local to one subsystem when possible
 - Run the narrowest relevant verification first, expand only if needed
@@ -96,19 +96,12 @@ Execution rules:
 - Recent window/runtime options include `--incognito`, `--new-window`, `--min-width`, `--min-height`, `--maximize`, multi-window behavior, notification click handling, and Linux/Wayland WebKit compositing defaults.
 - `--incognito` intentionally trades persistence for clean private sessions; be careful around login, cookies, local storage, and WeChat-style WebView detection.
 - `--new-window` and `--multi-window` do not bypass every provider policy. Google OAuth and similar embedded-WebView restrictions may still require a normal browser or native client.
-- macOS auth-popup behavior is fragile. Auth/sign-in URLs that trigger WebKit `SOAuthorization` popup creation should stay in the current window when that path can abort the app; changes in `src-tauri/src/inject/event.js` need targeted tests.
 - Notification flows cross injected JS, Tauri invokes, capabilities, and native notification plugins. Verify the Rust capability and JS caller together.
 - WebKit compositing behavior is platform-sensitive on Linux/Wayland. Runtime flag decisions live in `src-tauri/src/lib.rs`; keep the default conservative, cover compositor exceptions with unit tests, and document user-facing fallbacks in `docs/faq*.md`.
 - Linux AppImage reports often include harmless GTK, appindicator, or GStreamer warnings. Separate optional runtime warnings from the actual symptom before changing code; input/click failures on pure Wayland compositors are not the same class as blank-window failures.
 - Release state can be split. npm Trusted Publishing can succeed before the popular-app release workflow finishes, and GitHub Release assets can exist while a workflow run still shows queued or in progress. Report each surface explicitly.
 
 ## Platform-Specific Development
-
-### macOS
-
-- Universal builds via `--multi-arch` (Intel + Apple Silicon).
-- Icons: `.icns`.
-- Title bar can be customized via Tauri window options.
 
 ### Windows
 
@@ -147,7 +140,7 @@ Pushing a `V*` tag triggers `.github/workflows/release.yml`:
 1. **release-apps** - reads `default_app_list.json` for app list
 2. **create-release** - creates the GitHub Release placeholder
 3. **build-cli** - builds and uploads the `dist/` CLI artifact
-4. **build-popular-apps** - builds all apps in parallel across macOS/Windows/Linux
+4. **build-popular-apps** - builds all apps in parallel across Windows/Linux
 5. **publish-docker** - builds and pushes Docker image to GHCR
 
 The workflow can also be triggered manually via `workflow_dispatch` with options to build popular apps or publish Docker independently.
@@ -163,7 +156,7 @@ For release follow-through, keep these boundaries explicit:
 - For app-release claims, inspect the GitHub Release directly with `gh release view <tag> --json assets` and check asset count/state instead of trusting source state or workflow names alone.
 - If CI pushes an automatic `chore: update contributors [skip ci]` commit after release, fast-forward local `main`; do not move an already pushed release tag to include it.
 
-`.github/workflows/quality-and-test.yml` runs auto-format on push, Rust quality checks, and CLI/build validation across Linux, Windows, and macOS.
+`.github/workflows/quality-and-test.yml` runs auto-format on push, Rust quality checks, and CLI/build validation across Linux and Windows.
 
 ### Network Mirror Behavior
 
@@ -191,18 +184,6 @@ pake https://weekly.tw93.fun --name Weekly --width 1200 --height 800
 
 See `docs/faq.md` for common issues and solutions.
 
-### macOS SDK / Compile Errors
-
-If compilation errors occur (e.g. on macOS beta), create `src-tauri/.cargo/config.toml`:
-
-```toml
-[env]
-MACOSX_DEPLOYMENT_TARGET = "15.0"
-SDKROOT = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-```
-
-This file is already in `.gitignore`.
-
 ### `dist/cli.js` out of sync with `bin/`
 
 Symptom: tests or release builds use stale CLI behavior after a `bin/` edit. Fix with `pnpm run cli:build` and commit the regenerated `dist/cli.js`.
@@ -219,4 +200,4 @@ The first `cargo build` on a fresh clone takes 10+ minutes as Cargo compiles eve
 - **Key configuration files**:
   - `pake.json` - default app configuration.
   - `src-tauri/tauri.conf.json` - shared Tauri settings.
-  - `src-tauri/tauri.{macos,windows,linux}.conf.json` - per-platform overrides.
+  - `src-tauri/tauri.{windows,linux}.conf.json` - per-platform overrides.

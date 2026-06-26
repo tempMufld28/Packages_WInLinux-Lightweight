@@ -11,16 +11,12 @@ const CommonConf = fsExtra.readJSONSync(
 const WinConf = fsExtra.readJSONSync(
   path.join(tauriSrcDir, 'tauri.windows.conf.json'),
 );
-const MacConf = fsExtra.readJSONSync(
-  path.join(tauriSrcDir, 'tauri.macos.conf.json'),
-);
 const LinuxConf = fsExtra.readJSONSync(
   path.join(tauriSrcDir, 'tauri.linux.conf.json'),
 );
 
 const platformConfigs = {
   win32: WinConf,
-  darwin: MacConf,
   linux: LinuxConf,
 };
 

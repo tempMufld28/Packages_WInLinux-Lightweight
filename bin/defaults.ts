@@ -7,7 +7,6 @@ export const DEFAULT_PAKE_OPTIONS: PakeCliOptions = {
   fullscreen: false,
   maximize: false,
   resizable: true,
-  hideTitleBar: false,
   alwaysOnTop: false,
   appVersion: '1.0.0',
   darkMode: false,
@@ -15,13 +14,10 @@ export const DEFAULT_PAKE_OPTIONS: PakeCliOptions = {
   activationShortcut: '',
   userAgent: '',
   showSystemTray: false,
-  multiArch: false,
   targets: (() => {
     switch (process.platform) {
       case 'linux':
         return 'deb,appimage';
-      case 'darwin':
-        return 'dmg';
       case 'win32':
         return 'msi';
       default:
@@ -34,7 +30,7 @@ export const DEFAULT_PAKE_OPTIONS: PakeCliOptions = {
   debug: false,
   inject: [],
   installerLanguage: 'en-US',
-  hideOnClose: undefined, // Platform-specific: true for macOS, false for others
+  hideOnClose: undefined,
   incognito: false,
   wasm: false,
   enableDragDrop: false,
@@ -52,7 +48,4 @@ export const DEFAULT_PAKE_OPTIONS: PakeCliOptions = {
   minHeight: 0,
   ignoreCertificateErrors: false,
   newWindow: false,
-  install: false,
-  camera: false,
-  microphone: false,
 };

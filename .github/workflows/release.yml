@@ -1,4 +1,4 @@
-name: Release & Publish
+name: Build & Release Apps
 
 on:
   push:
@@ -6,141 +6,163 @@ on:
       - "V*"
   workflow_dispatch:
     inputs:
-      release_apps:
-        description: "Build popular apps"
-        type: boolean
-        default: false
-      publish_docker:
-        description: "Publish Docker image"
+      app_filter:
+        description: "Comma-separated app names to build (empty = all)"
+        type: string
+        default: ""
+      skip_release:
+        description: "Skip GitHub Release upload"
         type: boolean
         default: false
 
 env:
   NODE_VERSION: "22"
   PNPM_VERSION: "10.26.2"
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: write
 
 jobs:
-  # Build and release popular apps
-  release-apps:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.release_apps)
+  prepare-matrix:
     runs-on: ubuntu-latest
     outputs:
-      apps_name: ${{ steps.read-apps-config.outputs.apps_name }}
-      apps_config: ${{ steps.read-apps-config.outputs.apps_config }}
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Get Apps Config
-        id: read-apps-config
+      - uses: actions/checkout@v6
+      - name: Build dynamic matrix
+        id: build-matrix
         run: |
-          echo "apps_name=$(jq -c '[.[] | .name]' default_app_list.json)" >> $GITHUB_OUTPUT
-          echo "apps_config=$(jq -c '.' default_app_list.json)" >> $GITHUB_OUTPUT
+          FILTER="${{ inputs.app_filter }}"
+          if [ -z "$FILTER" ]; then
+            MATRIX=$(jq -c '.' default_app_list.json)
+          else
+            MATRIX=$(jq -c --arg f "$FILTER" '
+              [.[] | select(
+                ($f | split(",") | map(gsub("^\\s+|\\s+$";"")) | .[]) as $name
+                | .name == $name
+              )]' default_app_list.json)
+          fi
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
   create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
+    runs-on: ubuntu-latest
     steps:
-      - name: Create release placeholder
-        uses: ncipollo/release-action@v1
+      - uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           skipIfReleaseExists: true
+          body: |
+            ## Lightweight-apps Releases
+            Built with Tauri — ~5MB per app vs ~150MB Electron.
+
+            > **Linux DRM Note:** Spotify and YT Music on Linux do not support Widevine DRM.
 
   build-cli:
-    name: Build CLI
-    needs: release-apps
-    if: needs.release-apps.result == 'success'
+    needs: prepare-matrix
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js Environment
-        uses: ./.github/actions/setup-env
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-env
         with:
-          mode: 'node'
-
-      - name: Build CLI
-        run: pnpm run cli:build
-
-      - name: Upload CLI Artifact
-        uses: actions/upload-artifact@v6
+          mode: node
+      - run: pnpm run cli:build
+      - uses: actions/upload-artifact@v6
         with:
-          name: pake-cli-dist
+          name: lightweight-cli-dist
           path: dist/
           retention-days: 1
 
-  build-popular-apps:
-    name: ${{ matrix.config.title }}
-    needs: [release-apps, build-cli, create-release]
-    if: |
-      needs.release-apps.result == 'success' &&
-      needs.build-cli.result == 'success' &&
-      (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+  build-app:
+    needs: [prepare-matrix, build-cli]
     strategy:
+      fail-fast: false
       matrix:
-        config: ${{ fromJSON(needs.release-apps.outputs.apps_config) }}
-    uses: ./.github/workflows/single-app.yaml
-    secrets: inherit
-    with:
-      name: ${{ matrix.config.name }}
-      title: ${{ matrix.config.title }}
-      name_zh: ${{ matrix.config.name_zh }}
-      url: ${{ matrix.config.url }}
-      icon: ${{ matrix.config.icon }}
-      new_window: ${{ matrix.config.new_window || false }}
-      incognito: ${{ matrix.config.incognito || false }}
-      width: ${{ matrix.config.width || 1200 }}
-      height: ${{ matrix.config.height || 780 }}
-
-  # Publish Docker image (runs in parallel with app builds)
-  publish-docker:
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.publish_docker)
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
+        app: ${{ fromJSON(needs.prepare-matrix.outputs.matrix) }}
+        os:
+          - runner: ubuntu-22.04
+            platform: linux
+            rust: stable
+          - runner: windows-latest
+            platform: windows
+            rust: stable-x86_64-msvc
+    runs-on: ${{ matrix.os.runner }}
+    name: "${{ matrix.app.title }} (${{ matrix.os.platform }})"
+    timeout-minutes: 30
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container registry
-        uses: docker/login-action@v3
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          toolchain: ${{ matrix.os.rust }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=sha
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - uses: ./.github/actions/setup-env
         with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          mode: build
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: lightweight-cli-dist
+          path: dist
+
+      - name: Setup mold linker (Linux)
+        if: matrix.os.platform == 'linux'
+        uses: rui314/setup-mold@v1
+
+      # ── Build: Linux (.deb + .rpm) ──
+      - name: Build for Linux
+        if: matrix.os.platform == 'linux'
+        run: |
+          ARGS=("${{ matrix.app.url }}" "--name" "${{ matrix.app.name }}")
+          ARGS+=("--identifier" "${{ matrix.app.identifier }}")
+          ARGS+=("--width" "${{ matrix.app.width || 1200 }}")
+          ARGS+=("--height" "${{ matrix.app.height || 780 }}")
+
+          if [ -n "${{ matrix.app.user_agent }}" ]; then
+            ARGS+=("--user-agent" "${{ matrix.app.user_agent }}")
+          fi
+
+          # Target strictly restricted to deb and rpm
+          node dist/cli.js "${ARGS[@]}" --targets deb,rpm
+
+          mkdir -p output
+          for f in *.deb; do [ -f "$f" ] && mv "$f" "output/${{ matrix.app.title }}_$(arch).deb"; done
+          for f in *.rpm; do [ -f "$f" ] && mv "$f" "output/${{ matrix.app.title }}_$(arch).rpm"; done
+
+      # ── Build: Windows (.msi x64) ──
+      - name: Build for Windows
+        if: matrix.os.platform == 'windows'
+        shell: pwsh
+        run: |
+          $args = "${{ matrix.app.url }}", "--name", "${{ matrix.app.title }}"
+          $args += "--identifier", "${{ matrix.app.identifier }}"
+
+          if ("${{ matrix.app.user_agent }}" -ne "") {
+            $args += "--user-agent", "${{ matrix.app.user_agent }}"
+          }
+
+          $args += "--targets", "x64"
+          node dist/cli.js $args
+
+          New-Item -Path "output" -ItemType Directory -Force
+          Get-ChildItem *.msi | ForEach-Object {
+            Move-Item $_.FullName "output\${{ matrix.app.title }}_x64.msi"
+          }
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: "${{ matrix.app.title }}-${{ matrix.os.platform }}"
+          path: output/*
+          retention-days: 5
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/') && inputs.skip_release != true
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          omitBody: true
+          omitName: true
+          artifacts: "output/*"
+          token: ${{ secrets.GITHUB_TOKEN }}

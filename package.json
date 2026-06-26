@@ -35,7 +35,6 @@
     "dev": "pnpm run tauri dev",
     "build": "tauri build",
     "build:debug": "tauri build --debug",
-    "build:mac": "tauri build --target universal-apple-darwin",
     "analyze": "cd src-tauri && cargo bloat --release --crates",
     "tauri": "tauri",
     "cli": "cross-env NODE_ENV=development rollup -c -w",
@@ -59,7 +58,6 @@
     "execa": "^9.6.1",
     "file-type": "^21.3.0",
     "fs-extra": "^11.3.3",
-    "icon-gen": "^5.0.0",
     "loglevel": "^1.9.2",
     "ora": "^9.3.0",
     "prompts": "^2.4.2",
@@ -90,8 +88,7 @@
   },
   "pnpm": {
     "overrides": {
-      "sharp": "^0.34.5",
-      "@img/sharp-libvips-darwin-arm64": "1.2.4"
+      "sharp": "^0.34.5"
     },
     "onlyBuiltDependencies": [
       "esbuild",

@@ -3,7 +3,6 @@ import fsExtra from 'fs-extra';
 import chalk from 'chalk';
 import { dir } from 'tmp-promise';
 import { fileTypeFromBuffer } from 'file-type';
-import icongen from 'icon-gen';
 import sharp from 'sharp';
 
 import logger from './logger';
@@ -47,10 +46,9 @@ const ICON_CONFIG = {
   },
 } as const;
 
-const PLATFORM_CONFIG: Record<'win' | 'linux' | 'macos', PlatformIconConfig> = {
+const PLATFORM_CONFIG: Record<'win' | 'linux', PlatformIconConfig> = {
   win: { format: '.ico', sizes: [...WIN_STANDARD_ICO_SIZES] },
   linux: { format: '.png', size: 512 },
-  macos: { format: '.icns', sizes: [16, 32, 64, 128, 256, 512, 1024] },
 };
 
 const API_KEYS = {
@@ -70,10 +68,7 @@ function generateIconPath(appName: string, isDefault = false): string {
   if (IS_WIN) {
     return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_256.ico`);
   }
-  if (IS_LINUX) {
-    return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_512.png`);
-  }
-  return path.join(npmDirectory, 'src-tauri', 'icons', `${baseName}.icns`);
+  return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_512.png`);
 }
 
 function getIconBaseName(appName: string): string {
@@ -149,60 +144,6 @@ async function preprocessIcon(inputPath: string): Promise<string> {
 }
 
 /**
- * Applies macOS squircle mask to icon
- */
-async function applyMacOSMask(inputPath: string): Promise<string> {
-  try {
-    const { path: tempDir } = await dir();
-    const outputPath = path.join(tempDir, 'icon-macos-rounded.png');
-
-    // 1. Create a 1024x1024 rounded rect mask
-    // rx="224" is closer to the smooth Apple squircle look for 1024px
-    const mask = Buffer.from(
-      '<svg width="1024" height="1024"><rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="white"/></svg>',
-    );
-
-    // 2. Load input, resize to 1024, apply mask
-    const maskedBuffer = await sharp(inputPath)
-      .resize(1024, 1024, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .composite([
-        {
-          input: mask,
-          blend: 'dest-in',
-        },
-      ])
-      .png()
-      .toBuffer();
-
-    // 3. Resize to 840x840 (~18% padding) to solve "too big" visual issue
-    // Native MacOS icons often leave some breathing room
-    await sharp(maskedBuffer)
-      .resize(840, 840, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .extend({
-        top: 92,
-        bottom: 92,
-        left: 92,
-        right: 92,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .toFile(outputPath);
-
-    return outputPath;
-  } catch (error) {
-    if (error instanceof Error) {
-      logger.warn(`Failed to apply macOS mask: ${error.message}`);
-    }
-    return inputPath;
-  }
-}
-
-/**
  * Converts icon to platform-specific format
  */
 async function convertIconFormat(
@@ -263,17 +204,7 @@ async function convertIconFormat(
       return outputPath;
     }
 
-    // macOS
-    const macIconPath = await applyMacOSMask(processedInputPath);
-    await icongen(macIconPath, platformOutputDir, {
-      report: false,
-      icns: { name: iconName, sizes: PLATFORM_CONFIG.macos.sizes },
-    });
-    const outputPath = path.join(
-      platformOutputDir,
-      `${iconName}${PLATFORM_CONFIG.macos.format}`,
-    );
-    return (await fsExtra.pathExists(outputPath)) ? outputPath : null;
+    return null;
   } catch (error) {
     if (error instanceof Error) {
       logger.warn(`Icon format conversion failed: ${error.message}`);
@@ -294,9 +225,7 @@ async function processIcon(
   // Check if already in correct platform format
   const ext = path.extname(iconPath).toLowerCase();
   const isCorrectFormat =
-    (IS_WIN && ext === '.ico') ||
-    (IS_LINUX && ext === '.png') ||
-    (!IS_WIN && !IS_LINUX && ext === '.icns');
+    (IS_WIN && ext === '.ico') || (IS_LINUX && ext === '.png');
 
   if (isCorrectFormat) {
     return await copyWindowsIconIfNeeded(iconPath, appName);
@@ -354,11 +283,8 @@ async function getDefaultIcon(): Promise<string> {
     return '';
   }
 
-  // Linux and macOS defaults
-  const iconPath = IS_LINUX
-    ? 'src-tauri/png/icon_512.png'
-    : 'src-tauri/icons/icon.icns';
-  return path.join(npmDirectory, iconPath);
+  // Linux default
+  return path.join(npmDirectory, 'src-tauri/png/icon_512.png');
 }
 
 /**

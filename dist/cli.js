@@ -4,16 +4,15 @@ import chalk from 'chalk';
 import updateNotifier from 'update-notifier';
 import path from 'path';
 import fsExtra from 'fs-extra';
-import { fileURLToPath } from 'url';
 import prompts from 'prompts';
 import os from 'os';
 import { execa, execaSync } from 'execa';
 import crypto from 'crypto';
 import ora from 'ora';
+import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { dir } from 'tmp-promise';
 import { fileTypeFromBuffer } from 'file-type';
-import icongen from 'icon-gen';
 import sharp from 'sharp';
 import * as psl from 'psl';
 import { InvalidArgumentError, program as program$1, Option } from 'commander';
@@ -55,7 +54,6 @@ var scripts = {
 	dev: "pnpm run tauri dev",
 	build: "tauri build",
 	"build:debug": "tauri build --debug",
-	"build:mac": "tauri build --target universal-apple-darwin",
 	analyze: "cd src-tauri && cargo bloat --release --crates",
 	tauri: "tauri",
 	cli: "cross-env NODE_ENV=development rollup -c -w",
@@ -79,7 +77,6 @@ var dependencies = {
 	execa: "^9.6.1",
 	"file-type": "^21.3.0",
 	"fs-extra": "^11.3.3",
-	"icon-gen": "^5.0.0",
 	loglevel: "^1.9.2",
 	ora: "^9.3.0",
 	prompts: "^2.4.2",
@@ -110,8 +107,7 @@ var devDependencies = {
 };
 var pnpm = {
 	overrides: {
-		sharp: "^0.34.5",
-		"@img/sharp-libvips-darwin-arm64": "1.2.4"
+		sharp: "^0.34.5"
 	},
 	onlyBuiltDependencies: [
 		"esbuild",
@@ -136,40 +132,6 @@ var packageJson = {
 	dependencies: dependencies,
 	devDependencies: devDependencies,
 	pnpm: pnpm
-};
-
-// Convert the current module URL to a file path
-const currentModulePath = fileURLToPath(import.meta.url);
-// Resolve the parent directory of the current module
-const npmDirectory = path.join(path.dirname(currentModulePath), '..');
-const tauriConfigDirectory = path.join(npmDirectory, 'src-tauri', '.pake');
-
-// Load configs from npm package directory, not from project source
-const tauriSrcDir = path.join(npmDirectory, 'src-tauri');
-const pakeConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'pake.json'));
-const CommonConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.conf.json'));
-const WinConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.windows.conf.json'));
-const MacConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.macos.conf.json'));
-const LinuxConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.linux.conf.json'));
-const platformConfigs = {
-    win32: WinConf,
-    darwin: MacConf,
-    linux: LinuxConf,
-};
-const { platform: platform$2 } = process;
-// @ts-ignore
-const platformConfig = platformConfigs[platform$2];
-let tauriConfig = {
-    ...CommonConf,
-    bundle: platformConfig.bundle,
-    app: {
-        ...CommonConf.app,
-        trayIcon: {
-            ...(platformConfig?.app?.trayIcon ?? {}),
-        },
-    },
-    build: CommonConf.build,
-    pake: pakeConf,
 };
 
 // Generates a stable identifier based on the app URL (and optionally name).
@@ -226,10 +188,15 @@ function isCnMirrorEnabled(value = process.env[CN_MIRROR_ENV]) {
     return TRUE_VALUES.has((value ?? '').trim().toLowerCase());
 }
 
-const { platform: platform$1 } = process;
-const IS_MAC = platform$1 === 'darwin';
-const IS_WIN = platform$1 === 'win32';
-const IS_LINUX = platform$1 === 'linux';
+const { platform: platform$2 } = process;
+const IS_WIN = platform$2 === 'win32';
+const IS_LINUX = platform$2 === 'linux';
+
+// Convert the current module URL to a file path
+const currentModulePath = fileURLToPath(import.meta.url);
+// Resolve the parent directory of the current module
+const npmDirectory = path.join(path.dirname(currentModulePath), '..');
+const tauriConfigDirectory = path.join(npmDirectory, 'src-tauri', '.pake');
 
 async function shellExec(command, timeout = 300000, env) {
     try {
@@ -430,15 +397,13 @@ function needsTemporaryDebForZst(targets) {
  * Keep this function side-effect free.
  */
 function buildWindowConfigOverrides(options, platform = asSupportedPlatform(process.platform)) {
-    const platformHideOnClose = options.hideOnClose ?? platform === 'darwin';
-    const platformHideTitleBar = platform === 'darwin' ? options.hideTitleBar : false;
+    const platformHideOnClose = options.hideOnClose ?? false;
     return {
         width: options.width,
         height: options.height,
         fullscreen: options.fullscreen,
         maximize: options.maximize,
         resizable: options.resizable ?? true,
-        hide_title_bar: platformHideTitleBar,
         activation_shortcut: options.activationShortcut,
         always_on_top: options.alwaysOnTop,
         dark_mode: options.darkMode,
@@ -460,8 +425,8 @@ function buildWindowConfigOverrides(options, platform = asSupportedPlatform(proc
     };
 }
 function asSupportedPlatform(platform) {
-    if (platform !== 'win32' && platform !== 'darwin' && platform !== 'linux') {
-        throw new Error(`Pake only supports win32, darwin, and linux; detected '${platform}'.`);
+    if (platform !== 'win32' && platform !== 'linux') {
+        throw new Error(`Pake only supports win32 and linux; detected '${platform}'.`);
     }
     return platform;
 }
@@ -470,7 +435,6 @@ async function copyTemplateConfigs() {
     await fsExtra.ensureDir(tauriConfigDirectory);
     const sourceFiles = [
         'tauri.conf.json',
-        'tauri.macos.conf.json',
         'tauri.windows.conf.json',
         'tauri.linux.conf.json',
         'pake.json',
@@ -576,12 +540,6 @@ async function mergeIcons(options, name, tauriConf, platform, safeAppName) {
             defaultIcon: 'png/icon_512.png',
             message: 'Linux icon must be .png and 512x512px.',
         },
-        darwin: {
-            fileExt: '.icns',
-            path: `icons/${safeAppName}.icns`,
-            defaultIcon: 'icons/icon.icns',
-            message: 'macOS icon must be .icns type.',
-        },
     };
     const iconInfo = platformIconMap[platform];
     const resolvedIconPath = options.icon ? path.resolve(options.icon) : null;
@@ -622,7 +580,7 @@ async function mergeIcons(options, name, tauriConf, platform, safeAppName) {
         tauriConf.bundle.icon = [iconInfo.defaultIcon];
     }
     // Set tray icon path.
-    let trayIconPath = platform === 'darwin' ? 'png/icon_512.png' : tauriConf.bundle.icon[0];
+    let trayIconPath = tauriConf.bundle.icon[0];
     if (options.systemTrayIcon.length > 0) {
         try {
             await fsExtra.pathExists(options.systemTrayIcon);
@@ -674,29 +632,9 @@ async function injectCustomCode(options, tauriConf) {
         };
     }
 }
-async function generateMacEntitlements(camera, microphone) {
-    const entitlementEntries = [];
-    if (camera) {
-        entitlementEntries.push('    <key>com.apple.security.device.camera</key>\n    <true/>');
-    }
-    if (microphone) {
-        entitlementEntries.push('    <key>com.apple.security.device.audio-input</key>\n    <true/>');
-    }
-    const entitlementsContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-  <dict>
-${entitlementEntries.join('\n')}
-  </dict>
-</plist>
-`;
-    const entitlementsPath = path.join(npmDirectory, 'src-tauri', 'entitlements.plist');
-    await fsExtra.writeFile(entitlementsPath, entitlementsContent);
-}
 async function writeAllConfigs(tauriConf, platform) {
     const platformConfigPaths = {
         win32: 'tauri.windows.conf.json',
-        darwin: 'tauri.macos.conf.json',
         linux: 'tauri.linux.conf.json',
     };
     const configPath = path.join(tauriConfigDirectory, platformConfigPaths[platform]);
@@ -711,11 +649,8 @@ async function writeAllConfigs(tauriConf, platform) {
 }
 async function mergeConfig(url, options, tauriConf) {
     await copyTemplateConfigs();
-    const { appVersion, userAgent, showSystemTray, useLocalFile, identifier, name = 'pake-app', installerLanguage, wasm, camera, microphone, } = options;
+    const { appVersion, userAgent, showSystemTray, useLocalFile, identifier, name = 'pake-app', installerLanguage, wasm, } = options;
     const platform = asSupportedPlatform(process.platform);
-    if (options.hideTitleBar && platform !== 'darwin') {
-        logger.warn('✼ --hide-title-bar is only supported on macOS and will be ignored on this platform.');
-    }
     const tauriConfWindowOptions = buildWindowConfigOverrides(options, platform);
     Object.assign(tauriConf.pake.windows[0], { url, ...tauriConfWindowOptions });
     tauriConf.productName = name;
@@ -737,7 +672,6 @@ async function mergeConfig(url, options, tauriConf) {
     const platformMap = {
         win32: 'windows',
         linux: 'linux',
-        darwin: 'macos',
     };
     const currentPlatform = platformMap[platform];
     if (userAgent.length > 0) {
@@ -747,41 +681,44 @@ async function mergeConfig(url, options, tauriConf) {
     if (platform === 'linux') {
         await mergeLinuxConfig(options, name, tauriConf, linuxBinaryName);
     }
-    if (platform === 'darwin') {
-        const validMacTargets = ['app', 'dmg'];
-        if (validMacTargets.includes(options.targets)) {
-            tauriConf.bundle.targets = [options.targets];
-        }
-    }
     const safeAppName = getSafeAppName(name);
     await mergeIcons(options, name, tauriConf, platform, safeAppName);
     await injectCustomCode(options, tauriConf);
-    if (platform === 'darwin') {
-        await generateMacEntitlements(camera, microphone);
-    }
     await writeAllConfigs(tauriConf, platform);
 }
 
+// Load configs from npm package directory, not from project source
+const tauriSrcDir = path.join(npmDirectory, 'src-tauri');
+const pakeConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'pake.json'));
+const CommonConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.conf.json'));
+const WinConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.windows.conf.json'));
+const LinuxConf = fsExtra.readJSONSync(path.join(tauriSrcDir, 'tauri.linux.conf.json'));
+const platformConfigs = {
+    win32: WinConf,
+    linux: LinuxConf,
+};
+const { platform: platform$1 } = process;
+// @ts-ignore
+const platformConfig = platformConfigs[platform$1];
+let tauriConfig = {
+    ...CommonConf,
+    bundle: platformConfig.bundle,
+    app: {
+        ...CommonConf.app,
+        trayIcon: {
+            ...(platformConfig?.app?.trayIcon ?? {}),
+        },
+    },
+    build: CommonConf.build,
+    pake: pakeConf,
+};
+
 /**
- * Returns build environment variables overrides for macOS, where Rust crates
- * sometimes need explicit C/C++ flags and a deterministic SDK target. Other
- * platforms inherit `process.env` unchanged.
+ * Build environment variable overrides. Returns undefined on Windows/Linux,
+ * which inherit `process.env` unchanged.
  */
 function getBuildEnvironment() {
-    if (!IS_MAC) {
-        return undefined;
-    }
-    const currentPath = process.env.PATH || '';
-    const systemToolsPath = '/usr/bin';
-    const buildPath = currentPath.startsWith(`${systemToolsPath}:`)
-        ? currentPath
-        : `${systemToolsPath}:${currentPath}`;
-    return {
-        CFLAGS: '-fno-modules',
-        CXXFLAGS: '-fno-modules',
-        MACOSX_DEPLOYMENT_TARGET: '14.0',
-        PATH: buildPath,
-    };
+    return undefined;
 }
 /**
  * Windows needs more time due to native compilation and antivirus scanning.
@@ -938,7 +875,7 @@ class BaseBuilder {
         const tauriSrcPath = path.join(npmDirectory, 'src-tauri');
         const tauriTargetPath = path.join(tauriSrcPath, 'target');
         const tauriTargetPathExists = await fsExtra.pathExists(tauriTargetPath);
-        if (!IS_MAC && !tauriTargetPathExists) {
+        if (!tauriTargetPathExists) {
             logger.warn('✼ The first use requires installing system dependencies.');
             logger.warn('✼ See more in https://tauri.app/start/prerequisites/.');
         }
@@ -1015,9 +952,8 @@ class BaseBuilder {
         buildSpinner.stop();
         // Show static message to keep the status visible
         logger.warn('✸ Building app...');
-        const baseEnv = getBuildEnvironment();
         let buildEnv = {
-            ...(baseEnv ?? {}),
+            ...({}),
             ...(process.env.NO_STRIP ? { NO_STRIP: process.env.NO_STRIP } : {}),
         };
         const resolveExecEnv = () => Object.keys(buildEnv).length > 0 ? buildEnv : undefined;
@@ -1074,27 +1010,6 @@ class BaseBuilder {
             const binaryPath = this.getRawBinaryPath(name);
             logger.success('✔ Raw binary located in', path.resolve(binaryPath));
         }
-        if (IS_MAC && fileType === 'app' && this.options.install) {
-            await this.installAppToApplications(distPath, name);
-        }
-    }
-    async installAppToApplications(appBundlePath, appName) {
-        try {
-            logger.info(`- Installing ${appName} to /Applications...`);
-            const appBundleName = path.basename(appBundlePath);
-            const appDest = path.join('/Applications', appBundleName);
-            if (await fsExtra.pathExists(appDest)) {
-                logger.warn(`  Existing ${appBundleName} in /Applications will be replaced.`);
-            }
-            // fsExtra.move uses fs.rename (atomic on same filesystem) and falls back
-            // to copy+remove only when moving across volumes.
-            await fsExtra.move(appBundlePath, appDest, { overwrite: true });
-            logger.success(`✔ ${appBundleName.replace(/\.app$/, '')} installed to /Applications`);
-        }
-        catch (error) {
-            logger.error(`✕ Failed to install ${appName}: ${error}`);
-            logger.info(`  App bundle still available at: ${appBundlePath}`);
-        }
     }
     getFileType(target) {
         return target;
@@ -1136,35 +1051,12 @@ class BaseBuilder {
     }
     getBuildFeatures() {
         const features = ['cli-build'];
-        // Add macos-proxy feature for modern macOS (Darwin 23+ = macOS 14+)
-        if (IS_MAC) {
-            const macOSVersion = this.getMacOSMajorVersion();
-            if (macOSVersion >= 23) {
-                features.push('macos-proxy');
-            }
-        }
         return features;
     }
     getBuildCommand(packageManager = 'pnpm') {
         // Use temporary config directory to avoid modifying source files
         const configPath = path.join(npmDirectory, 'src-tauri', '.pake', 'tauri.conf.json');
-        let fullCommand = this.buildBaseCommand(packageManager, configPath);
-        // For macOS, use app bundles by default unless DMG is explicitly requested
-        if (IS_MAC && this.options.targets === 'app') {
-            fullCommand += ' --bundles app';
-        }
-        return fullCommand;
-    }
-    getMacOSMajorVersion() {
-        try {
-            const os = require('os');
-            const release = os.release();
-            const majorVersion = parseInt(release.split('.')[0], 10);
-            return majorVersion;
-        }
-        catch (error) {
-            return 0; // Disable proxy feature if version detection fails
-        }
+        return this.buildBaseCommand(packageManager, configPath);
     }
     getCargoTargetDir() {
         return process.env.CARGO_TARGET_DIR || path.join('src-tauri', 'target');
@@ -1179,8 +1071,7 @@ class BaseBuilder {
         return path.join(this.getCargoTargetDir(), basePath, 'bundle');
     }
     getBuildAppPath(npmDirectory, fileName, fileType) {
-        // For app bundles on macOS, the directory is 'macos', not 'app'
-        const bundleDir = fileType.toLowerCase() === 'app' ? 'macos' : fileType.toLowerCase();
+        const bundleDir = fileType.toLowerCase();
         return path.join(this.resolveBuildPath(npmDirectory, this.getBasePath()), bundleDir, `${fileName}.${fileType}`);
     }
     /**
@@ -1207,7 +1098,7 @@ class BaseBuilder {
         const basePath = this.options.debug ? 'debug' : 'release';
         const binaryName = this.getBinaryName(appName);
         // Handle cross-platform builds
-        if (this.options.multiArch || this.hasArchSpecificTarget()) {
+        if (this.hasArchSpecificTarget()) {
             return path.join(this.resolveBuildPath(npmDirectory, this.getArchSpecificPath()), basePath, binaryName);
         }
         return path.join(this.resolveBuildPath(npmDirectory, this.getCargoTargetDir()), basePath, binaryName);
@@ -1245,11 +1136,6 @@ class BaseBuilder {
     }
 }
 BaseBuilder.ARCH_MAPPINGS = {
-    darwin: {
-        arm64: 'aarch64-apple-darwin',
-        x64: 'x86_64-apple-darwin',
-        universal: 'universal-apple-darwin',
-    },
     win32: {
         arm64: 'aarch64-pc-windows-msvc',
         x64: 'x86_64-pc-windows-msvc',
@@ -1264,88 +1150,6 @@ BaseBuilder.ARCH_DISPLAY_NAMES = {
     x64: 'x64',
     universal: 'universal',
 };
-
-class MacBuilder extends BaseBuilder {
-    constructor(options) {
-        super(options);
-        const validArchs = ['intel', 'apple', 'universal', 'auto', 'x64', 'arm64'];
-        this.buildArch = validArchs.includes(options.targets || '')
-            ? options.targets
-            : 'auto';
-        // `app` is a valid macOS bundle target (see merge.ts); honour it explicitly.
-        if (options.targets === 'app' ||
-            options.iterativeBuild ||
-            options.install ||
-            process.env.PAKE_CREATE_APP === '1') {
-            this.buildFormat = 'app';
-        }
-        else {
-            this.buildFormat = 'dmg';
-        }
-        this.options.targets = this.buildFormat;
-    }
-    getFileName() {
-        const { name = 'pake-app' } = this.options;
-        if (this.buildFormat === 'app') {
-            return name;
-        }
-        let arch;
-        if (this.buildArch === 'universal' || this.options.multiArch) {
-            arch = 'universal';
-        }
-        else if (this.buildArch === 'apple') {
-            arch = 'aarch64';
-        }
-        else if (this.buildArch === 'intel') {
-            arch = 'x64';
-        }
-        else {
-            arch = this.getArchDisplayName(this.resolveTargetArch(this.buildArch));
-        }
-        return `${name}_${tauriConfig.version}_${arch}`;
-    }
-    getActualArch() {
-        if (this.buildArch === 'universal' || this.options.multiArch) {
-            return 'universal';
-        }
-        else if (this.buildArch === 'apple') {
-            return 'arm64';
-        }
-        else if (this.buildArch === 'intel') {
-            return 'x64';
-        }
-        return this.resolveTargetArch(this.buildArch);
-    }
-    getBuildCommand(packageManager = 'pnpm') {
-        const configPath = path.join('src-tauri', '.pake', 'tauri.conf.json');
-        const actualArch = this.getActualArch();
-        const buildTarget = this.getTauriTarget(actualArch, 'darwin');
-        if (!buildTarget) {
-            throw new Error(`Unsupported architecture: ${actualArch} for macOS`);
-        }
-        return this.buildBaseCommand(packageManager, configPath, buildTarget);
-    }
-    getBasePath() {
-        const basePath = this.options.debug ? 'debug' : 'release';
-        const actualArch = this.getActualArch();
-        const target = this.getTauriTarget(actualArch, 'darwin');
-        if (!target) {
-            throw new Error(`Unsupported architecture: ${actualArch} for macOS`);
-        }
-        return path.join(this.getCargoTargetDir(), target, basePath, 'bundle');
-    }
-    hasArchSpecificTarget() {
-        return true;
-    }
-    getArchSpecificPath() {
-        const actualArch = this.getActualArch();
-        const target = this.getTauriTarget(actualArch, 'darwin');
-        if (!target) {
-            throw new Error(`Unsupported architecture: ${actualArch} for macOS`);
-        }
-        return path.join(this.getCargoTargetDir(), target);
-    }
-}
 
 class WinBuilder extends BaseBuilder {
     constructor(options) {
@@ -1618,7 +1422,6 @@ post_remove() {
 
 const { platform } = process;
 const buildersMap = {
-    darwin: MacBuilder,
     win32: WinBuilder,
     linux: LinuxBuilder,
 };
@@ -1951,7 +1754,6 @@ const ICON_CONFIG = {
 const PLATFORM_CONFIG = {
     win: { format: '.ico', sizes: [...WIN_STANDARD_ICO_SIZES] },
     linux: { format: '.png', size: 512 },
-    macos: { format: '.icns', sizes: [16, 32, 64, 128, 256, 512, 1024] },
 };
 const API_KEYS = {
     logoDev: ['pk_JLLMUKGZRpaG5YclhXaTkg', 'pk_Ph745P8mQSeYFfW2Wk039A'],
@@ -1966,10 +1768,7 @@ function generateIconPath(appName, isDefault = false) {
     if (IS_WIN) {
         return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_256.ico`);
     }
-    if (IS_LINUX) {
-        return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_512.png`);
-    }
-    return path.join(npmDirectory, 'src-tauri', 'icons', `${baseName}.icns`);
+    return path.join(npmDirectory, 'src-tauri', 'png', `${baseName}_512.png`);
 }
 function getIconBaseName(appName) {
     const baseName = IS_LINUX
@@ -2024,54 +1823,6 @@ async function preprocessIcon(inputPath) {
     }
 }
 /**
- * Applies macOS squircle mask to icon
- */
-async function applyMacOSMask(inputPath) {
-    try {
-        const { path: tempDir } = await dir();
-        const outputPath = path.join(tempDir, 'icon-macos-rounded.png');
-        // 1. Create a 1024x1024 rounded rect mask
-        // rx="224" is closer to the smooth Apple squircle look for 1024px
-        const mask = Buffer.from('<svg width="1024" height="1024"><rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="white"/></svg>');
-        // 2. Load input, resize to 1024, apply mask
-        const maskedBuffer = await sharp(inputPath)
-            .resize(1024, 1024, {
-            fit: 'contain',
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-            .composite([
-            {
-                input: mask,
-                blend: 'dest-in',
-            },
-        ])
-            .png()
-            .toBuffer();
-        // 3. Resize to 840x840 (~18% padding) to solve "too big" visual issue
-        // Native MacOS icons often leave some breathing room
-        await sharp(maskedBuffer)
-            .resize(840, 840, {
-            fit: 'contain',
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-            .extend({
-            top: 92,
-            bottom: 92,
-            left: 92,
-            right: 92,
-            background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-            .toFile(outputPath);
-        return outputPath;
-    }
-    catch (error) {
-        if (error instanceof Error) {
-            logger.warn(`Failed to apply macOS mask: ${error.message}`);
-        }
-        return inputPath;
-    }
-}
-/**
  * Converts icon to platform-specific format
  */
 async function convertIconFormat(inputPath, appName) {
@@ -2115,14 +1866,7 @@ async function convertIconFormat(inputPath, appName) {
                 .toFile(outputPath);
             return outputPath;
         }
-        // macOS
-        const macIconPath = await applyMacOSMask(processedInputPath);
-        await icongen(macIconPath, platformOutputDir, {
-            report: false,
-            icns: { name: iconName, sizes: PLATFORM_CONFIG.macos.sizes },
-        });
-        const outputPath = path.join(platformOutputDir, `${iconName}${PLATFORM_CONFIG.macos.format}`);
-        return (await fsExtra.pathExists(outputPath)) ? outputPath : null;
+        return null;
     }
     catch (error) {
         if (error instanceof Error) {
@@ -2139,9 +1883,7 @@ async function processIcon(iconPath, appName) {
         return iconPath;
     // Check if already in correct platform format
     const ext = path.extname(iconPath).toLowerCase();
-    const isCorrectFormat = (IS_WIN && ext === '.ico') ||
-        (IS_LINUX && ext === '.png') ||
-        (!IS_WIN && !IS_LINUX && ext === '.icns');
+    const isCorrectFormat = (IS_WIN && ext === '.ico') || (IS_LINUX && ext === '.png');
     if (isCorrectFormat) {
         return await copyWindowsIconIfNeeded(iconPath, appName);
     }
@@ -2185,11 +1927,8 @@ async function getDefaultIcon() {
         logger.warn('✼ No default icon found, will use pake default.');
         return '';
     }
-    // Linux and macOS defaults
-    const iconPath = IS_LINUX
-        ? 'src-tauri/png/icon_512.png'
-        : 'src-tauri/icons/icon.icns';
-    return path.join(npmDirectory, iconPath);
+    // Linux default
+    return path.join(npmDirectory, 'src-tauri/png/icon_512.png');
 }
 /**
  * Main icon handling function with simplified logic flow
@@ -2557,7 +2296,6 @@ const DEFAULT_PAKE_OPTIONS = {
     width: 1200,
     fullscreen: false,
     maximize: false,
-    hideTitleBar: false,
     alwaysOnTop: false,
     appVersion: '1.0.0',
     darkMode: false,
@@ -2565,13 +2303,10 @@ const DEFAULT_PAKE_OPTIONS = {
     activationShortcut: '',
     userAgent: '',
     showSystemTray: false,
-    multiArch: false,
     targets: (() => {
         switch (process.platform) {
             case 'linux':
                 return 'deb,appimage';
-            case 'darwin':
-                return 'dmg';
             case 'win32':
                 return 'msi';
             default:
@@ -2584,7 +2319,7 @@ const DEFAULT_PAKE_OPTIONS = {
     debug: false,
     inject: [],
     installerLanguage: 'en-US',
-    hideOnClose: undefined, // Platform-specific: true for macOS, false for others
+    hideOnClose: undefined,
     incognito: false,
     wasm: false,
     enableDragDrop: false,
@@ -2602,9 +2337,6 @@ const DEFAULT_PAKE_OPTIONS = {
     minHeight: 0,
     ignoreCertificateErrors: false,
     newWindow: false,
-    install: false,
-    camera: false,
-    microphone: false,
 };
 
 function validateNumberInput(value) {
@@ -2657,8 +2389,6 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .option('--height <number>', 'Window height', validateNumberInput, DEFAULT_PAKE_OPTIONS.height)
         .option('--use-local-file', 'Use local file packaging', DEFAULT_PAKE_OPTIONS.useLocalFile)
         .option('--fullscreen', 'Start in full screen', DEFAULT_PAKE_OPTIONS.fullscreen)
-        .option('--hide-title-bar', 'For Mac, hide title bar', DEFAULT_PAKE_OPTIONS.hideTitleBar)
-        .option('--multi-arch', 'For Mac, both Intel and M1', DEFAULT_PAKE_OPTIONS.multiArch)
         .option('--inject <files>', 'Inject local CSS/JS files into the page', (val, previous) => {
         if (!val)
             return DEFAULT_PAKE_OPTIONS.inject;
@@ -2687,7 +2417,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .addOption(new Option('--maximize', 'Start window maximized')
         .default(DEFAULT_PAKE_OPTIONS.maximize)
         .hideHelp())
-        .addOption(new Option('--dark-mode', 'Force app to use dark mode (supports macOS, Windows, and Linux)')
+        .addOption(new Option('--dark-mode', 'Force app to use dark mode (supports Windows and Linux)')
         .default(DEFAULT_PAKE_OPTIONS.darkMode)
         .hideHelp())
         .addOption(new Option('--disabled-web-shortcuts', 'Disabled webPage shortcuts')
@@ -2702,7 +2432,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .addOption(new Option('--system-tray-icon <string>', 'Custom system tray icon')
         .default(DEFAULT_PAKE_OPTIONS.systemTrayIcon)
         .hideHelp())
-        .addOption(new Option('--hide-on-close [boolean]', 'Hide window on close instead of exiting (default: true for macOS, false for others)')
+        .addOption(new Option('--hide-on-close [boolean]', 'Hide window on close instead of exiting (default: false)')
         .default(DEFAULT_PAKE_OPTIONS.hideOnClose)
         .argParser((value) => {
         if (value === undefined)
@@ -2766,19 +2496,10 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .addOption(new Option('--ignore-certificate-errors', 'Ignore certificate errors (for self-signed certificates)')
         .default(DEFAULT_PAKE_OPTIONS.ignoreCertificateErrors)
         .hideHelp())
-        .addOption(new Option('--iterative-build', 'Turn on rapid build mode (app only, no dmg/deb/msi), good for debugging')
+        .addOption(new Option('--iterative-build', 'Turn on rapid build mode (app only, no deb/msi), good for debugging')
         .default(DEFAULT_PAKE_OPTIONS.iterativeBuild)
         .hideHelp())
         .addOption(new Option('--new-window', 'Allow sites to open new windows (for auth flows, tabs, branches)').default(DEFAULT_PAKE_OPTIONS.newWindow))
-        .addOption(new Option('--install', 'Auto-install app to /Applications (macOS) after build and remove local bundle')
-        .default(DEFAULT_PAKE_OPTIONS.install)
-        .hideHelp())
-        .addOption(new Option('--camera', 'Request camera permission on macOS')
-        .default(DEFAULT_PAKE_OPTIONS.camera)
-        .hideHelp())
-        .addOption(new Option('--microphone', 'Request microphone permission on macOS')
-        .default(DEFAULT_PAKE_OPTIONS.microphone)
-        .hideHelp())
         .version(packageJson.version, '-v, --version')
         .configureHelp({
         sortSubcommands: true,

@@ -6,9 +6,6 @@ use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
 use tauri_plugin_window_state::StateFlags;
 
-#[cfg(target_os = "macos")]
-use std::time::Duration;
-
 const WINDOW_SHOW_DELAY: u64 = 50;
 #[cfg(target_os = "linux")]
 const PAKE_LINUX_WEBKIT_SAFE_MODE: &str = "PAKE_LINUX_WEBKIT_SAFE_MODE";
@@ -148,7 +145,6 @@ pub fn run_app() {
     let start_to_tray = pake_config.windows[0].start_to_tray && show_system_tray; // Only valid when tray is enabled
     let multi_instance = pake_config.multi_instance;
     let multi_window = pake_config.multi_window;
-    let _enable_find = pake_config.windows[0].enable_find;
 
     let window_state_plugin = WindowStatePlugin::default()
         .with_state_flags(if init_fullscreen {
@@ -199,18 +195,6 @@ pub fn run_app() {
                 tauri_config.clone(),
             ));
 
-            // --- Menu Construction Start ---
-            #[cfg(target_os = "macos")]
-            {
-                app::menu::set_app_menu(app.app_handle(), multi_window, _enable_find)?;
-
-                // Event Handling for Custom Menu Item
-                app.on_menu_event(move |app_handle, event| {
-                    app::menu::handle_menu_click(app_handle, event.id().as_ref());
-                });
-            }
-            // --- Menu Construction End ---
-
             let window = set_window(app.app_handle(), &pake_config, &tauri_config)?;
             set_system_tray(
                 app.app_handle(),
@@ -255,13 +239,6 @@ pub fn run_app() {
                     // Hide window when hide_on_close is enabled (regardless of tray status)
                     let window = _window.clone();
                     tauri::async_runtime::spawn(async move {
-                        #[cfg(target_os = "macos")]
-                        {
-                            if window.is_fullscreen().unwrap_or(false) {
-                                let _ = window.set_fullscreen(false);
-                                tokio::time::sleep(Duration::from_millis(900)).await;
-                            }
-                        }
                         #[cfg(target_os = "linux")]
                         {
                             if window.is_fullscreen().unwrap_or(false) {
@@ -270,8 +247,6 @@ pub fn run_app() {
                                 let _ = window.set_focus();
                             }
                         }
-                        // On macOS, directly hide without minimize to avoid duplicate Dock icons
-                        #[cfg(not(target_os = "macos"))]
                         let _ = window.minimize();
                         let _ = window.hide();
                     });
@@ -287,20 +262,8 @@ pub fn run_app() {
             std::process::exit(1);
         })
         .run(|_app, _event| {
-            // Handle macOS dock icon click to reopen hidden window
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen {
-                has_visible_windows,
-                ..
-            } = _event
-            {
-                if !has_visible_windows {
-                    if let Some(window) = _app.get_webview_window("pake") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }
-            }
+            let _ = _app;
+            let _ = _event;
         });
 }
 

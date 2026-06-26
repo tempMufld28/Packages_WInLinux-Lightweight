@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WindowConfig {
     pub url: String,
-    pub hide_title_bar: bool,
     pub fullscreen: bool,
     pub maximize: bool,
     pub width: f64,
@@ -44,15 +43,12 @@ fn default_zoom() -> u32 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlatformSpecific<T> {
-    pub macos: T,
     pub linux: T,
     pub windows: T,
 }
 
 impl<T> PlatformSpecific<T> {
     pub const fn get(&self) -> &T {
-        #[cfg(target_os = "macos")]
-        let platform = &self.macos;
         #[cfg(target_os = "linux")]
         let platform = &self.linux;
         #[cfg(target_os = "windows")]

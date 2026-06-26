@@ -45,8 +45,6 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
       DEFAULT.useLocalFile,
     )
     .option('--fullscreen', 'Start in full screen', DEFAULT.fullscreen)
-    .option('--hide-title-bar', 'For Mac, hide title bar', DEFAULT.hideTitleBar)
-    .option('--multi-arch', 'For Mac, both Intel and M1', DEFAULT.multiArch)
     .option(
       '--inject <files>',
       'Inject local CSS/JS files into the page',
@@ -105,7 +103,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     .addOption(
       new Option(
         '--dark-mode',
-        'Force app to use dark mode (supports macOS, Windows, and Linux)',
+        'Force app to use dark mode (supports Windows and Linux)',
       )
         .default(DEFAULT.darkMode)
         .hideHelp(),
@@ -133,7 +131,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     .addOption(
       new Option(
         '--hide-on-close [boolean]',
-        'Hide window on close instead of exiting (default: true for macOS, false for others)',
+        'Hide window on close instead of exiting (default: false)',
       )
         .default(DEFAULT.hideOnClose)
         .argParser((value) => {
@@ -249,7 +247,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     .addOption(
       new Option(
         '--iterative-build',
-        'Turn on rapid build mode (app only, no dmg/deb/msi), good for debugging',
+        'Turn on rapid build mode (app only, no deb/msi), good for debugging',
       )
         .default(DEFAULT.iterativeBuild)
         .hideHelp(),
@@ -259,24 +257,6 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         '--new-window',
         'Allow sites to open new windows (for auth flows, tabs, branches)',
       ).default(DEFAULT.newWindow),
-    )
-    .addOption(
-      new Option(
-        '--install',
-        'Auto-install app to /Applications (macOS) after build and remove local bundle',
-      )
-        .default(DEFAULT.install)
-        .hideHelp(),
-    )
-    .addOption(
-      new Option('--camera', 'Request camera permission on macOS')
-        .default(DEFAULT.camera)
-        .hideHelp(),
-    )
-    .addOption(
-      new Option('--microphone', 'Request microphone permission on macOS')
-        .default(DEFAULT.microphone)
-        .hideHelp(),
     )
     .version(packageJson.version, '-v, --version')
     .configureHelp({
