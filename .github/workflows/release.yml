@@ -84,7 +84,7 @@ jobs:
       matrix:
         app: ${{ fromJSON(needs.prepare-matrix.outputs.matrix) }}
         os:
-          - runner: ubuntu-22.04
+          - runner: ubuntu-24.04
             platform: linux
             rust: stable
           - runner: windows-latest
