@@ -128,7 +128,7 @@ jobs:
 
       - name: Run Real Tauri Build (warning only)
         shell: bash
-        run: PAKE_CREATE_APP=1 node tests/index.js --no-unit --no-integration --no-builder
+        run: PAKE_CREATE_APP=1 node tests/index.js --no-unit --no-integration --no-builder --no-release
         timeout-minutes: 45
         continue-on-error: true
         env:

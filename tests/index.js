@@ -1526,6 +1526,7 @@ const options = {
   pakeCliTests: args.includes("--pake-cli"),
   e2e: args.includes("--e2e"),
   realBuild: !args.includes("--no-build"), // Always include real build test
+  release: !args.includes("--no-release"), // Whether to run release workflow test
   quick: false,
 };
 
@@ -1555,6 +1556,7 @@ Skip Components (if needed):
   --no-integration  Skip integration tests
   --no-builder   Skip builder tests
   --no-build     Skip real build test
+  --no-release   Skip release workflow test (Telegram/Twitch full builds)
 
 Examples:
   npm test                         # Complete test suite (recommended)
@@ -1574,9 +1576,10 @@ const runner = new PakeTestRunner();
 runner
   .runAll(options)
   .then(async (success) => {
-    // Run release workflow tests as part of the standard suite
-    // We skip this if builder tests are explicitly disabled (often used for quick checks)
-    if (success && options.realBuild) {
+    // Run release workflow tests as part of the standard suite.
+    // Requires both realBuild AND release to be enabled.
+    // Use --no-release to skip (e.g. in CI jobs that only want the Tauri smoke build).
+    if (success && options.realBuild && options.release) {
       console.log("\n[Package] Running Release Workflow Test...");
       console.log(
         "   (This mimics the GitHub Actions release process for popular apps)",
