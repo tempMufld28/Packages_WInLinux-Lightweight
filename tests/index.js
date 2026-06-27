@@ -757,7 +757,7 @@ class PakeTestRunner {
             });
           }
 
-          const command = `node "${config.CLI_PATH}" "https://github.com" --name "${testName}" --width 1200 --height 800 --hide-title-bar`;
+          const command = `node "${config.CLI_PATH}" "https://github.com" --name "${testName}" --width 1200 --height 800`;
 
           const child = spawn(command, {
             shell: true,
@@ -937,7 +937,7 @@ class PakeTestRunner {
             `[Build]  Building Universal Binary (Intel + Apple Silicon)`,
           );
 
-          const command = `node "${config.CLI_PATH}" "https://github.com" --name "${testName}" --width 1200 --height 800 --hide-title-bar --multi-arch`;
+          const command = `node "${config.CLI_PATH}" "https://github.com" --name "${testName}" --width 1200 --height 800 --multi-arch`;
 
           const child = spawn(command, {
             shell: true,

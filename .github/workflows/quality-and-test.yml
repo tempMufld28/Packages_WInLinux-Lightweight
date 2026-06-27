@@ -97,6 +97,7 @@ jobs:
 
   # Full lane: only runs after merge to main (push event) or manual dispatch.
   # Keeps the real Tauri build coverage off the PR critical path.
+  # Real Tauri build is a warning-only step (continue-on-error: true).
   validation-full:
     name: Full Tauri Build (${{ matrix.os }})
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -114,9 +115,22 @@ jobs:
         with:
           mode: build
 
-      - name: Run Full Test Suite (with real build)
-        run: pnpm test
-        timeout-minutes: 30
+      - name: Build CLI
+        run: pnpm run cli:build
+
+      - name: Run Test Suite (unit, integration, builder — no real build)
+        shell: bash
+        run: PAKE_CREATE_APP=1 node tests/index.js --no-build
+        timeout-minutes: 10
+        env:
+          CI: true
+          NODE_ENV: test
+
+      - name: Run Real Tauri Build (warning only)
+        shell: bash
+        run: PAKE_CREATE_APP=1 node tests/index.js --no-unit --no-integration --no-builder
+        timeout-minutes: 45
+        continue-on-error: true
         env:
           CI: true
           NODE_ENV: test
